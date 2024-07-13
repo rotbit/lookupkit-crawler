@@ -38,7 +38,7 @@ async def scrape(request: URLRequest, authorization: Optional[str] = Header(None
     url = request.url
     tags = request.tags  # tag数组
     languages = request.languages  # 需要翻译的多语言列表
-
+    logger.info(f'crawl url:{url}, tags:{tags}, languages:{languages}')
     if system_auth_secret:
         # 配置了非空的auth_secret，才验证
         validate_authorization(authorization)
