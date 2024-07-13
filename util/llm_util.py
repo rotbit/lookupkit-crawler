@@ -25,7 +25,7 @@ class LLMUtil:
             base_url = moonshot_url,
         )
         completion = client.chat.completions.create(
-            model = "moonshot-v1-128k",
+            model = "moonshot-v1-32k",
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
