@@ -48,6 +48,8 @@ async def task_detail(request: TaskDetailRequest, authorization: Optional[str] =
     if system_auth_secret:
         # 配置了非空的auth_secret，才验证
         validate_authorization(authorization)
+    print(f'GetRequest :{request}')
+    
     supabase: Client = create_client(url, key)
     submit = supabase.table('submit').select('*').eq('id', id).execute()
 
@@ -177,4 +179,4 @@ def validate_authorization(authorization):
 if __name__ == '__main__':
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8040)
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")
