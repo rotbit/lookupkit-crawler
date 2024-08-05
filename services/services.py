@@ -2,11 +2,15 @@ import logging
 import os
 import time
 import sys
+import asyncio
 from dotenv import load_dotenv
+from multiprocessing import Process
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
                 
 from utils.mongodb_utils import GetMongoClient
+from utils.website_crawler import WebsiteCrawler
 
 load_dotenv()
 
@@ -38,6 +42,27 @@ def getTaskDetail(task_id: str)-> dict:
     return result
    
 
+def generate_page_content(task_detail: dict):
+    # 更新任务详情
+    client = GetMongoClient("task_detail")
+    task_id = task_detail.get("submit_id")
+    client.update_one({"submit_id": task_id}, {"$set": task_detail})
+    
+    # 开启生成进程
+    generate_process = Process(target=run_async_process, args=(task_detail,))
+    generate_process.start()
+    
+    return task_detail
+
+def run_async_process(task_detail: dict):
+    # 启动网站数据爬虫
+    asyncio.run(generate_start(task_detail))
+
+async def generate_start(task_detail: dict):
+    # 启动网站数据爬虫
+    websiteCrawler = WebsiteCrawler()
+    await websiteCrawler.collect_website_info(task_detail["task_url"])
+
 def createDefaultTask(task_id: str)-> dict:
     # 先查询submit表，查询基础数据
     client = GetMongoClient("submit")
@@ -59,7 +84,5 @@ def createDefaultTask(task_id: str)-> dict:
         "email": submit_data["email"],
     }
     client = GetMongoClient("task_detail")
-    print("111")
     client.insert_one(task_detail)
-    print("222")
     return task_detail

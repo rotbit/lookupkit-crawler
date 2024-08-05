@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-from services.services import getTaskList, getTaskDetail
+from services.services import getTaskList, getTaskDetail, generate_page_content
+from models.requests import GenerateRequest
 
 app = FastAPI()
 
@@ -32,3 +33,9 @@ async def task_list(auth: str = Header(None)):
 async def task_detail(task_id: str):
    task_detail = getTaskDetail(task_id)
    return {"data": task_detail, "code": 0}
+
+
+@app.post("/task/generate")
+async def generate(request: GenerateRequest):
+    generate_page_content(request.model_dump())
+    return { "code": 0}

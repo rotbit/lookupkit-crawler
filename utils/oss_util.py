@@ -9,7 +9,11 @@ import boto3
 from datetime import datetime
 import random
 from PIL import Image
-from lookupkit_crawler.utils.common_util import CommonUtil
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+from utils.common_util import CommonUtil
 
 
 # 设置日志记录
