@@ -55,8 +55,8 @@ def createDefaultTask(task_id: str)-> dict:
         "keyword": "",
         "keyword_density": 0.05,
         "targe_url": submit_data["url"],
-        "target_name": submit_data["name"],
-        "target_email": submit_data["email"],
+        "name": submit_data["name"],
+        "email": submit_data["email"],
     }
     client = GetMongoClient("task_detail")
     print("111")
