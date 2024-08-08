@@ -11,4 +11,3 @@ class GenerateRequest(BaseModel):
     task_url: str
     name: str
     task_id: str
-    

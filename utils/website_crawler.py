@@ -133,6 +133,8 @@ class WebsiteCrawler:
             **screenshot
         }
         
+        collect_data["url"] = url
+        
         client = GetMongoClient("collect_data")
         client.insert_one(collect_data)
         

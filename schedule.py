@@ -24,7 +24,12 @@ class DataLoader:
         self.mongo_client = MongoClient(mongo_db_url)
         self.mongo_db = self.mongo_client["lookupkit"]
             
-
+    def category_data_sync(self):
+        logger.info("开始加载navigation_category")
+        categoryTable = self.supabase.table('navigation_category').select('*').execute()
+        print(categoryTable)
+        self.write_to_mongo(categoryTable.data, "navigation_category")
+    
     def submit_data_sync(self):
         logger.info("开始加载submitTable")
         submitTable = self.supabase.table('submit').select('*').execute()
@@ -49,6 +54,7 @@ def start_data_loader():
     while True:
         data_loader = DataLoader()
         data_loader.submit_data_sync()
+        data_loader.category_data_sync()
         time.sleep(60)
 
 def start_scheduler():        
