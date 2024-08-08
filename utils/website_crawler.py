@@ -5,6 +5,8 @@ import sys
 import os
 import random
 from pyppeteer import launch
+from playwright.async_api import async_playwright
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -12,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from utils.common_util import CommonUtil
 from utils.llm_util import LLMUtil
 from utils.oss_util import OSSUtil
+from utils.mongodb_utils import GetMongoClient
 
 llm = LLMUtil()
 oss = OSSUtil()
@@ -43,6 +46,99 @@ class WebsiteCrawler:
         self.browser = None
         
     async def collect_website_info(self, url):
+        async with async_playwright() as playwright:
+            await self.collect_website_info_v2(playwright, url)
+    
+    # 提取站点数据        
+    def get_website_data(self, origin_content, url):
+        soup = BeautifulSoup(origin_content, 'html.parser')
+         # 通过标签名提取内容
+        title = soup.title.string.strip() if soup.title else ''
+
+        # 根据url提取域名生成name
+        name = CommonUtil.get_name_by_url(url)
+
+        # 获取网页描述
+        description = ''
+        meta_description = soup.find('meta', attrs={'name': 'description'})
+        if meta_description:
+            description = meta_description['content'].strip()
+
+        if not description:
+            meta_description = soup.find('meta', attrs={'property': 'og:description'})
+            description = meta_description['content'].strip() if meta_description else ''
+            
+        # 抓取整个网页内容
+        content = soup.get_text()
+        
+        return {
+            'name': name,
+            'title': title,
+            'description': description,
+            'content': content
+        }
+        
+    async def capture_screenshot(self, page, url):
+        width = 1920  # 默认宽度为 1920
+        height = 1080  # 默认高度为 1080
+        dimensions = await page.evaluate('''({width, height}) => {
+            return {
+                width: Number(width),
+                height: Number(height),
+                deviceScaleFactor: window.devicePixelRatio
+            };
+        }''', { 'width': width, 'height': height })
+        
+        screenshot_path = './' + url.replace("https://", "").replace("http://", "").replace("/", "").replace(".", "-") + '.png'
+        await page.screenshot(path=screenshot_path, clip={
+            'x': 0,
+            'y': 0,
+            'width': dimensions['width'],
+            'height': dimensions['height']
+        })
+        
+        # 图片上传oss
+        image_key = oss.get_default_file_key(url)
+        # 上传图片，返回图片地址
+        screenshot = oss.upload_file_to_r2(screenshot_path, image_key)
+
+        # 生成缩略图
+        thumnbail = oss.generate_thumbnail_image(url, image_key)
+        
+        return {
+            "screenshot": screenshot,
+            "thumbnail": thumnbail
+        }
+
+    async def collect_website_info_v2(self, playwright, url):
+        browser = await playwright.chromium.launch(headless=True)
+        context = await browser.new_context(
+            viewport={'width': 1920, 'height': 1080}
+        )
+        page = await context.new_page()
+        
+        await page.goto(url)
+        # 获取网页的内容
+        content = await page.content()
+        
+        # 提取网站数据
+        site_data = self.get_website_data(content, url)
+        
+        # 获取网站截图
+        screenshot = await self.capture_screenshot(page, url)
+        
+        # 将数据写入mongodb
+        collect_data = {
+            **site_data,
+            **screenshot
+        }
+        
+        client = GetMongoClient("collect_data")
+        client.insert_one(collect_data)
+        
+        await browser.close()
+        
+    async def collect_website_info_v1(self, url):
         try:
             # 记录程序开始时间
             start_time = int(time.time())
@@ -50,20 +146,21 @@ class WebsiteCrawler:
             if not url.startswith('http://') and not url.startswith('https://'):
                 url = 'https://' + url
             if self.browser is None:
-                self.browser = await launch(headless=True,
+                self.browser = await launch(headless=False,
                     ignoreDefaultArgs=["--enable-automation"],
                     ignoreHTTPSErrors=True,
-                    args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
-                    '--disable-software-rasterizer', '--disable-setuid-sandbox'],
-                    handleSIGINT=False, handleSIGTERM=False, handleSIGHUP=False)
-            
+                    args=['--disable-dev-shm-usage', '--disable-gpu',
+                    '--disable-software-rasterizer'],
+                    handleSIGINT=False, handleSIGTERM=False, handleSIGHUP=False)            
             page = await self.browser.newPage()
+            await page.setUserAgent(random.choice(global_agent_headers))
             
              # 设置页面视口大小并访问具体URL
             width = 1920  # 默认宽度为 1920
             height = 1080  # 默认高度为 1080
             await page.setViewport({'width': width, 'height': height})
             try:
+                print(url)
                 await page.goto(url, {'timeout': 60000, 'waitUntil': ['load', 'networkidle2']})
             except Exception as e:
                 logger.info(f'页面加载超时,不影响继续执行后续流程:{e}')
@@ -127,13 +224,16 @@ class WebsiteCrawler:
                 'screenshot_thumbnail_data': thumnbail_key,
                 "content": content
             }
-            print(result)
+            # 将结果写入到mongodb
+            client = GetMongoClient("collect")
+            client.insert_one(result)
             
         except Exception as e:
             logger.error("处理" + url + "站点异常，错误信息:", e)
             return None
         finally:
-            await self.browser.close()
+            if self.browser is not None:
+                await self.browser.close()
             # 计算程序执行时间
             execution_time = int(time.time()) - start_time
             # 输出程序执行时间
