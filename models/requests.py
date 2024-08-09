@@ -11,3 +11,10 @@ class GenerateRequest(BaseModel):
     task_url: str
     name: str
     task_id: str
+    feature_prompt:str
+    introd_prompt:str
+    
+class TaskResultRequest(BaseModel):
+    task_id: str
+    language: str
+    
