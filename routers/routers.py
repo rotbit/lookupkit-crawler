@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from services.services import *
-from models.requests import GenerateRequest, TaskResultRequest
+from models.requests import AddTaskRequest, DeleteTaskRequest, GenerateRequest, TaskResultRequest
 
 app = FastAPI()
 
@@ -44,6 +44,8 @@ async def task_detail(task_id: str):
 @app.get("/task/progress/{task_id}")
 async def task_progress(task_id: str):
     task_progress = get_task_progress(task_id)
+    if task_progress is None:
+        return {"code": 1, "message": "任务不存在"}
     return {"code": 0, "status": task_progress['status']}
 
 @app.post("/task/generate")
@@ -91,3 +93,19 @@ async def generate_introd(request: GenerateRequest):
     }
     generate_page_content(request.model_dump(), step)
     return { "code": 0, "status": "generate_feature", "message": "任务已经开始生成，请稍后查看" }
+
+@app.post("/task/delete")
+async def delete_task(request: DeleteTaskRequest):
+    client = GetMongoClient("submit")
+    client.delete_one({"id": request.task_id})
+    
+    return {"code": 0, "message": "删除成功"}
+
+@app.post("/task/add_task")
+async def add_task(request: AddTaskRequest):
+    client = GetMongoClient("submit")
+    submit_data = request.model_dump()
+    submit_data['id'] = int(time.time())
+    submit_data['email'] = ''
+    client.insert_one(submit_data)
+    return {"code": 0, "task_id": submit_data['id'] }

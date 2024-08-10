@@ -1,6 +1,11 @@
 from typing import List, Optional
 
 from pydantic import BaseModel
+
+class AddTaskRequest(BaseModel):
+    name: str
+    url: str
+    status:str
     
 class GenerateRequest(BaseModel):
     model: str
@@ -17,4 +22,7 @@ class GenerateRequest(BaseModel):
 class TaskResultRequest(BaseModel):
     task_id: str
     language: str
+    
+class DeleteTaskRequest(BaseModel):
+    task_id: int
     

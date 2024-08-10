@@ -45,12 +45,12 @@ class LLMMoonshot:
         logger.info("正在生成简介...")
         if len(sys_prompt) == 0:
             sys_prompt = self.introduction_sys_prompt
-            
+        print(sys_prompt, user_prompt)
         return self.completion(sys_prompt, user_prompt)
     
     def generate_features(self, sys_prompt,user_prompt):
         logger.info("正在生成特性...")
-        if len(sys_prompt):
+        if len(sys_prompt) == 0:
             sys_prompt = self.features_sys_prompt
         return self.completion(sys_prompt, user_prompt)
         

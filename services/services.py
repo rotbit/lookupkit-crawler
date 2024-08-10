@@ -133,7 +133,7 @@ async def generate_start(task_detail: dict, step:dict):
         
     # 保存网页数据到mongodb
     client = GetMongoClient("page_detail")
-    client.insert_one(page_detail)
+    client.update_one({"task_id": task_detail["task_id"], "language": task_detail["language"]}, {"$set": page_detail}, upsert=True)
     
     # 更新任务进度
     update_task_progress(task_detail["task_id"], 100, "completed")
