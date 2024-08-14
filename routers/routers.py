@@ -2,14 +2,17 @@ import logging
 import os
 import time
 import sys
-from fastapi import FastAPI, Header, BackgroundTasks, HTTPException
+from supabase import create_client, Client
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
+from utils.common_util import GetLangeageCode
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from services.services import *
-from models.requests import AddTaskRequest, DeleteTaskRequest, GenerateRequest, TaskResultRequest
+from models.requests import *
 
 app = FastAPI()
 
@@ -109,3 +112,20 @@ async def add_task(request: AddTaskRequest):
     submit_data['email'] = ''
     client.insert_one(submit_data)
     return {"code": 0, "task_id": submit_data['id'] }
+
+@app.post("/task/publish")
+async def publish_task(request: PublishTaskRequest):
+    # 创建web_navigation
+    web_nav = create_web_navigation(request.task_id, request.language)
+    
+    # 同步到supabase
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+    
+    supabase.table('web_navigation').insert(web_nav).execute()    
+        
+    translate_process = Process(target=run_async_translate_process, args=(web_nav, request.model, request.language))
+    translate_process.start()
+    
+    return {"code": 0, "message": "任务已经开始发布，请稍后查看" }

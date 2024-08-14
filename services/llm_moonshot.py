@@ -65,7 +65,7 @@ class LLMMoonshot:
         return tags
 
     def process_language(self, language, user_prompt):
-        logger.info(f"正在处理多语言:{language}, user_prompt:{user_prompt}")
+        #logger.info(f"正在处理多语言:{language}, user_prompt:{user_prompt}")
         # 如果language 包含 English字符，则直接返回
         if 'english'.lower() in language.lower():
             result = user_prompt

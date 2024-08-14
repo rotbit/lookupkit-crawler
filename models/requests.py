@@ -7,6 +7,10 @@ class AddTaskRequest(BaseModel):
     url: str
     status:str
     
+class PublishTaskRequest(BaseModel):
+    task_id: str
+    language: str
+    model:str
 class GenerateRequest(BaseModel):
     model: str
     keyword: str

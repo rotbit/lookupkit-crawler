@@ -47,7 +47,8 @@ class WebsiteCrawler:
         
     async def collect_website_info(self, url):
         async with async_playwright() as playwright:
-            await self.collect_website_info_v2(playwright, url)
+            result = await self.collect_website_info_v2(playwright, url)
+            return result
     
     # 提取站点数据        
     def get_website_data(self, origin_content, url):
@@ -135,10 +136,9 @@ class WebsiteCrawler:
         
         collect_data["url"] = url
         
-        client = GetMongoClient("collect_data")
-        client.insert_one(collect_data)
-        
         await browser.close()
+        
+        return collect_data
         
     async def collect_website_info_v1(self, url):
         try:

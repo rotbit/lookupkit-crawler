@@ -42,4 +42,57 @@ class CommonUtil:
             return (domain.replace("www.","") + path.replace("/", "-")).replace(".", "-")
         else:
             return None
+        
+def GetSupportLanguages():
+    return ["chinese", "english", "japanese", "french", "spanish", "german", "russian", "portuguese", "繁体中文"]
+        
+def GetLangeageCode(language: str):
+    language = str.lower(language)
+    if language == "chinese":
+        return "zh"
+    if language == "english":
+        return "en"
+    if language == "japanese":
+        return "jp"
+    if language == "korean":
+        return "kr"
+    if language == "french":
+        return "fr"
+    if language == "spanish":
+        return "es"
+    if language == "german":
+        return "de"
+    if language == "italian":
+        return "it"
+    if language == "russian":
+        return "ru"
+    if language == "portuguese":
+        return "pt"
+    if language == "dutch":
+        return "nl"
+    if language == "polish":
+        return "pl"
+    if language == "turkish":
+        return "tr"
+    if language == "arabic":
+        return "ar"
+    if language == "swedish":
+        return "sv"
+    if language == "indonesian":
+        return "id"
+    if language == "thai":
+        return "th"
+    if language == "vietnamese":
+        return "vi"
+    if language == "greek":
+        return "el"
+    if language == "czech":
+        return "cs"
+    if language == "danish":
+        return "da"
+    if language == "finnish":
+        return "fi"
+    if language == "繁体中文":
+        return "tw"
+    return "en"
 

@@ -6,9 +6,12 @@ import asyncio
 from dotenv import load_dotenv
 from multiprocessing import Process
 
+from supabase import Client, create_client
+
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
                 
+from utils.common_util import GetLangeageCode, GetSupportLanguages
 from utils.mongodb_utils import GetMongoClient
 from utils.website_crawler import WebsiteCrawler
 from services.llm import get_llm_model
@@ -56,13 +59,36 @@ def generate_page_content(task_detail: dict, step:dict):
     task_id = task_detail.get("submit_id")
     client.update_one({"submit_id": task_id}, {"$set": task_detail})
     # 开启生成进程
-    generate_process = Process(target=run_async_process, args=(task_detail,step))
+    generate_process = Process(target=run_async_crawler_process, args=(task_detail,step))
     generate_process.start()
     
     return task_detail
 
+def generate_translate(web_nav: dict, model_name:str, language:str):
+      # 同步到supabase
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+      # 多语言翻译
+    model = get_llm_model(model_name)
+    support_languages = GetSupportLanguages()
+    for support_language  in support_languages:
+        if support_language == language:
+            continue
+        web_nav['locale'] = GetLangeageCode(support_language)
+        web_nav['title'] = model.process_language(support_language, web_nav['title'])
+        web_nav['introds'] = model.process_language(support_language, web_nav['introds'])
+        web_nav['feature'] = model.process_language(support_language, web_nav['feature'])
+        web_nav['content'] = model.process_language(support_language, web_nav['content'])
+        
+        supabase.table('web_navigation').insert(web_nav).execute()    
 
-def run_async_process(task_detail: dict, step:dict):
+# 异步执行翻译
+def run_async_translate_process(web_nav: dict, model_name:str, language:str):
+    # 启动翻译进程
+    asyncio.run(generate_translate(web_nav, model_name, language))
+
+def run_async_crawler_process(task_detail: dict, step:dict):
     # 启动网站数据爬虫
     asyncio.run(generate_start(task_detail, step))
     
@@ -82,9 +108,9 @@ def update_task_progress(task_id: str, progress: int, status: str):
     client = GetMongoClient("task_progress")
     client.update_one({"submit_id": task_id}, {"$set": {"progress": progress, "status": status}})
 
-def get_collect_data(url: str) -> dict:
+def get_collect_data(task_id:str) -> dict:
     client = GetMongoClient("collect_data")
-    collect_data = client.find_one({"url": url})
+    collect_data = client.find_one({"task_id": task_id})
     return collect_data
 
 def get_category_data() -> list:
@@ -101,8 +127,12 @@ async def generate_start(task_detail: dict, step:dict):
     if collect_data is None:
         # 启动网站数据爬虫
         websiteCrawler = WebsiteCrawler()
-        await websiteCrawler.collect_website_info(task_detail["task_url"])
-        collect_data = get_collect_data(task_detail["task_url"])
+        collect_data = await websiteCrawler.collect_website_info(task_detail["task_url"])
+        # collect_data = get_collect_data(task_detail["task_url"])
+        collect_data['task_id'] = task_detail["task_id"]
+        # 保存网站数据到mongodb
+        client = GetMongoClient("collect_data")
+        client.insert_one(collect_data)
         
     page_detail = {
         "task_id": task_detail["task_id"],
@@ -130,6 +160,7 @@ async def generate_start(task_detail: dict, step:dict):
         update_task_progress(task_detail["task_id"], 20, "generate_tags")
         selected_tags = llm_model.process_tags(prompt)
         page_detail["tags"] = selected_tags
+        print(selected_tags)
         
     # 保存网页数据到mongodb
     client = GetMongoClient("page_detail")
@@ -170,3 +201,32 @@ def get_task_result(task_id: str, language: str)-> dict:
     client = GetMongoClient("page_detail")
     task_result = client.find_one({"task_id": task_id, "language": language})
     return task_result
+
+def get_page_data(task_id: str, language: str)-> dict:
+    client = GetMongoClient("page_detail")
+    page_data = client.find_one({"task_id": task_id, "language": language})
+    return page_data
+        
+def create_web_navigation(task_id: str, language: str):
+    web_nav ={}
+    # 查询网站数据
+    collect_data = get_collect_data(task_id)
+    
+    # 构建存储数据
+    web_nav['name'] = collect_data['name']
+    web_nav['title'] = collect_data['title']
+    web_nav['url'] = collect_data['url']
+    web_nav['image_url'] = collect_data['screenshot']
+    web_nav['thumbnail_url'] = collect_data['thumbnail']
+    
+    web_nav['content'] = collect_data['description']
+    
+     # 查询生成的页面数据
+    page_detail = get_page_data(task_id, language)
+    
+    if len(page_detail['tags']) > 0:
+        web_nav['category_name'] = page_detail['tags'][0]
+    web_nav['locale'] =  GetLangeageCode(page_detail['language'])
+    web_nav['introds'] = page_detail['introduction']
+    web_nav['feature'] = page_detail['features']
+    return web_nav
