@@ -55,7 +55,7 @@ def start_data_loader():
         data_loader = DataLoader()
         data_loader.submit_data_sync()
         data_loader.category_data_sync()
-        time.sleep(60)
+        time.sleep(60 * 60)
 
 def start_scheduler():        
         data_load_process = Process(target=start_data_loader)
