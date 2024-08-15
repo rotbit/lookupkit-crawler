@@ -7,8 +7,7 @@ WORKDIR /app
 COPY . .
 
 # 1.2 安装python依赖
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
-    && pip install --no-cache-dir -r requirements.txt \
+RUN pip install --no-cache-dir -r requirements.txt \
     && pip install gunicorn \
     && pip install requests \
     && playwright install-deps \
