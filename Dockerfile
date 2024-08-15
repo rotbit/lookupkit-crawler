@@ -11,6 +11,7 @@ RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install gunicorn \
     && pip install requests \
+    && playwright install-deps \
     && playwright install
 
 EXPOSE 8080
