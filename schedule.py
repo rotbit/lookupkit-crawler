@@ -50,14 +50,11 @@ class DataLoader:
             except Exception as e:
                 logger.error(f"写入{collection}表失败: {e}")
 
-def start_data_loader():
+
+def start_scheduler():        
     data_loader = DataLoader()
     data_loader.submit_data_sync()
     data_loader.category_data_sync()
-
-def start_scheduler():        
-        data_load_process = Process(target=start_data_loader)
-        data_load_process.start()
                         
 if __name__ == '__main__':
     start_scheduler()
