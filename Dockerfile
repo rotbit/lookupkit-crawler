@@ -10,9 +10,9 @@ COPY . .
 RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install gunicorn \
-    && pip install requests
+    && pip install requests \
+    && playwright install
 
 EXPOSE 8080
-EXPOSE 8081
 
 CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8080", "main:app"]
