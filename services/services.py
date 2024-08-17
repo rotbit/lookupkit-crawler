@@ -64,7 +64,7 @@ def generate_page_content(task_detail: dict, step:dict):
     
     return task_detail
 
-def generate_translate(web_nav: dict, model_name:str, language:str):
+async def generate_translate(web_nav: dict, model_name:str, language:str):
       # 同步到supabase
     url: str = os.environ.get("SUPABASE_URL")
     key: str = os.environ.get("SUPABASE_KEY")
@@ -75,13 +75,20 @@ def generate_translate(web_nav: dict, model_name:str, language:str):
     for support_language  in support_languages:
         if support_language == language:
             continue
-        web_nav['locale'] = GetLangeageCode(support_language)
+        
+        locale = GetLangeageCode(support_language)
+        exist = supabase.table('web_navigation').select('*').eq('url', web_nav['url']).eq('locale', locale).execute()
+        if len(exist.data) > 0:
+            continue
+        
+        web_nav['locale'] = locale
         web_nav['title'] = model.process_language(support_language, web_nav['title'])
         web_nav['introds'] = model.process_language(support_language, web_nav['introds'])
         web_nav['feature'] = model.process_language(support_language, web_nav['feature'])
         web_nav['content'] = model.process_language(support_language, web_nav['content'])
         
-        supabase.table('web_navigation').insert(web_nav).execute()    
+        supabase.table('web_navigation').insert(web_nav).execute()   
+    logging.info(f"翻译完成{web_nav['url']}") 
 
 # 异步执行翻译
 def run_async_translate_process(web_nav: dict, model_name:str, language:str):

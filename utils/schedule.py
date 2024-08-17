@@ -1,3 +1,4 @@
+import asyncio
 import time
 import logging
 import os
@@ -36,6 +37,10 @@ class DataLoader:
         print(submitTable)
         self.write_to_mongo(submitTable.data, "submit")
 
+    def web_navigation_data_sync(self):
+        logger.info("开始加载web_navigation")
+        webNavigationTable = self.supabase.table('web_navigation').select('*').execute()
+        self.write_to_mongo(webNavigationTable.data, "web_navigation")
  
     def write_to_mongo(self, data, collection):
         if not data:
@@ -51,13 +56,15 @@ class DataLoader:
                 logger.error(f"写入{collection}表失败: {e}")
 
 
-def start_scheduler():        
-    data_loader = DataLoader()
-    data_loader.submit_data_sync()
-    data_loader.category_data_sync()
-                        
-if __name__ == '__main__':
-    start_scheduler()
-  
-    
+def start_sync_scheduler():    
+    while True:    
+        data_loader = DataLoader()
+        data_loader.submit_data_sync()
+        data_loader.category_data_sync()
+        time.sleep(60 * 60 * 12) # 每12小时同步一次数据
 
+
+# 异步执行翻译
+def run_async_data_schedule(web_nav: dict, model_name:str, language:str):
+    # 启动翻译进程
+    asyncio.run(start_sync_scheduler())
