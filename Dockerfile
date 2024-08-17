@@ -10,8 +10,9 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install gunicorn \
     && pip install requests \
+    && pip install jwt \
     && playwright install-deps \
-    && playwright install
+    && playwright install \
 
 EXPOSE 8080
 
