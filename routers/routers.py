@@ -2,9 +2,13 @@ import logging
 import os
 import time
 import sys
+import jwt
 from supabase import create_client, Client
-from fastapi import FastAPI, Header
+from fastapi import Depends, FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
+
 from dotenv import load_dotenv
 
 from utils.common_util import GetLangeageCode
@@ -26,8 +30,28 @@ app.add_middleware(
 
 load_dotenv()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+def verify_token(token: str = Depends(oauth2_scheme)):
+    secret_key = os.environ.get("AUTH_SECRET")
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 @app.post("/task/result")
-async def task_result(request: TaskResultRequest):
+async def task_result(request: TaskResultRequest,token: str = Depends(verify_token)):
     task_result = get_task_result(request.task_id, request.language)
     if task_result is None:
         return {"code": 1, "message": "任务不存在"}
@@ -35,24 +59,25 @@ async def task_result(request: TaskResultRequest):
     return {"data": result, "code": 0}
 
 @app.get("/task/list")
-async def task_list(auth: str = Header(None)):
+async def task_list(token: str = Depends(verify_token)):
     results = getTaskList()
     return {"data": results, "code": 0}
 
 @app.get("/task/detail/{task_id}")
-async def task_detail(task_id: str):
+async def task_detail(task_id: str,token: str = Depends(verify_token)):
    task_detail = getTaskDetail(task_id)
    return {"data": task_detail, "code": 0}
 
 @app.get("/task/progress/{task_id}")
-async def task_progress(task_id: str):
+async def task_progress(task_id: str,token: str = Depends(verify_token)):
     task_progress = get_task_progress(task_id)
     if task_progress is None:
         return {"code": 1, "message": "任务不存在"}
     return {"code": 0, "status": task_progress['status']}
 
 @app.post("/task/generate")
-async def generate(request: GenerateRequest):
+async def generate(request: GenerateRequest,token: str = Depends(verify_token)):
+    print(token)
     # 更新任务信息
     update_task_detail(request.task_id, request.dict())
     # 创建任务进度
@@ -68,7 +93,7 @@ async def generate(request: GenerateRequest):
 
 
 @app.post("/task/generate_intro")
-async def generate_introd(request: GenerateRequest):
+async def generate_introd(request: GenerateRequest,token: str = Depends(verify_token)):
     # 更新任务信息
     update_task_detail(request.task_id, request.dict())
     # 创建任务进度
@@ -83,7 +108,7 @@ async def generate_introd(request: GenerateRequest):
     return { "code": 0, "status": "generate_introd", "message": "任务已经开始生成，请稍后查看" }
 
 @app.post("/task/generate_feature")
-async def generate_introd(request: GenerateRequest):
+async def generate_introd(request: GenerateRequest,token: str = Depends(verify_token)):
     # 更新任务信息
     update_task_detail(request.task_id, request.dict())
     # 创建任务进度
@@ -98,14 +123,14 @@ async def generate_introd(request: GenerateRequest):
     return { "code": 0, "status": "generate_feature", "message": "任务已经开始生成，请稍后查看" }
 
 @app.post("/task/delete")
-async def delete_task(request: DeleteTaskRequest):
+async def delete_task(request: DeleteTaskRequest,token: str = Depends(verify_token)):
     client = GetMongoClient("submit")
     client.delete_one({"id": request.task_id})
     
     return {"code": 0, "message": "删除成功"}
 
 @app.post("/task/add_task")
-async def add_task(request: AddTaskRequest):
+async def add_task(request: AddTaskRequest,token: str = Depends(verify_token)):
     client = GetMongoClient("submit")
     submit_data = request.model_dump()
     submit_data['id'] = int(time.time())
@@ -113,8 +138,25 @@ async def add_task(request: AddTaskRequest):
     client.insert_one(submit_data)
     return {"code": 0, "task_id": submit_data['id'] }
 
+@app.post("/user/login")
+async def user_login(request: UserLoginRequest):
+    client = GetMongoClient("user")
+    username = client.find_one({"username": request.username, "password": request.password})
+    if username is None:
+        return {"code": 1, "message": "用户不存在"}
+    
+    # 更新用户登录时间，生成token  
+    client.update_one({"username": request.username}, {"$set": {"last_login": time.time()}})
+     # 生成JWT token
+    secret_key = os.environ.get("AUTH_SECRET")
+    token = jwt.encode({"username": request.username, "exp": time.time() + 3600}, secret_key, algorithm="HS256")
+    # 更新token
+    client.update_one({"username": request.username}, {"$set": {"token": token}})
+    
+    return {"code": 0, "token": token}
+
 @app.post("/task/publish")
-async def publish_task(request: PublishTaskRequest):
+async def publish_task(request: PublishTaskRequest,token: str = Depends(verify_token)):
     # 创建web_navigation
     web_nav = create_web_navigation(request.task_id, request.language)
     

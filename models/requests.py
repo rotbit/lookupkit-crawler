@@ -30,3 +30,7 @@ class TaskResultRequest(BaseModel):
 class DeleteTaskRequest(BaseModel):
     task_id: int
     
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+    
