@@ -12,6 +12,7 @@ from fastapi import Depends, HTTPException, status
 from dotenv import load_dotenv
 
 from utils.common_util import GetLangeageCode
+from utils.schedule import start_sync_scheduler_once
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -60,6 +61,9 @@ async def task_result(request: TaskResultRequest,token: str = Depends(verify_tok
 
 @app.get("/task/list")
 async def task_list(token: str = Depends(verify_token)):
+    # 异步更新数据
+    Process(target=start_sync_scheduler_once).start()
+    
     results = getTaskList()
     return {"data": results, "code": 0}
 

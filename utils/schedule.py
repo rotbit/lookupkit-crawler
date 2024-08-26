@@ -63,7 +63,11 @@ def start_sync_scheduler():
         data_loader.category_data_sync()
         time.sleep(60 * 60 * 12) # 每12小时同步一次数据
 
-
+def start_sync_scheduler_once():
+    data_loader = DataLoader()
+    data_loader.submit_data_sync()
+    data_loader.category_data_sync()
+    
 # 异步执行翻译
 def run_async_data_schedule(web_nav: dict, model_name:str, language:str):
     # 启动翻译进程
