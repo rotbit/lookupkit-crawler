@@ -49,7 +49,7 @@ def GetSupportLanguages():
 def GetLangeageCode(language: str):
     language = str.lower(language)
     if language == "chinese":
-        return "zh"
+        return "cn"
     if language == "english":
         return "en"
     if language == "japanese":
