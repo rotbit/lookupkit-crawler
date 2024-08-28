@@ -64,6 +64,13 @@ def generate_page_content(task_detail: dict, step:dict):
     
     return task_detail
 
+def is_exist_translate(web_nav: dict, locale:str):
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+    exist = supabase.table('web_navigation').select('*').eq('url', web_nav['url']).eq('locale', locale).execute()
+    return len(exist.data) > 0
+
 async def generate_translate(web_nav: dict, model_name:str, language:str):
       # 同步到supabase
     url: str = os.environ.get("SUPABASE_URL")
@@ -77,15 +84,13 @@ async def generate_translate(web_nav: dict, model_name:str, language:str):
             continue
         
         locale = GetLangeageCode(support_language)
-        exist = supabase.table('web_navigation').select('*').eq('url', web_nav['url']).eq('locale', locale).execute()
-        if len(exist.data) > 0:
+        if is_exist_translate(web_nav, locale):
+            print(f'{web_nav["url"]} 已经存在{support_language}翻译')
             continue
-        
         web_nav['locale'] = locale
         web_nav['title'] = model.process_language(support_language, web_nav['title'])
         web_nav['introds'] = model.process_language(support_language, web_nav['introds'])
         web_nav['feature'] = model.process_language(support_language, web_nav['feature'])
-        web_nav['content'] = model.process_language(support_language, web_nav['content'])
         
         supabase.table('web_navigation').insert(web_nav).execute()   
     logging.info(f"翻译完成{web_nav['url']}") 
