@@ -213,8 +213,12 @@ def get_page_data(task_id: str, language: str)-> dict:
     client = GetMongoClient("page_detail")
     page_data = client.find_one({"task_id": task_id, "language": language})
     return page_data
+
+def update_page_data(task_id: str, language: str, introduction: str, feature: str):
+    client = GetMongoClient("page_detail")
+    client.update_one({"task_id": task_id, "language": language}, {"$set": {"introduction": introduction, "features": feature}})
         
-def create_web_navigation(task_id: str, language: str):
+def create_web_navigation(task_id: str, language: str, introduction: str, feature: str):
     web_nav ={}
     # 查询网站数据
     collect_data = get_collect_data(task_id)
@@ -228,7 +232,10 @@ def create_web_navigation(task_id: str, language: str):
     
     web_nav['content'] = collect_data['description']
     
-     # 查询生成的页面数据
+    # 更新页面introduction和feature
+    update_page_data(task_id, language, introduction, feature)
+    
+    # 查询生成的页面数据
     page_detail = get_page_data(task_id, language)
     
     if len(page_detail['tags']) > 0:

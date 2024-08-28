@@ -11,6 +11,8 @@ class PublishTaskRequest(BaseModel):
     task_id: str
     language: str
     model:str
+    introduction:str
+    feature:str
 class GenerateRequest(BaseModel):
     model: str
     keyword: str

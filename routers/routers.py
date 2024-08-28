@@ -151,7 +151,7 @@ async def user_login(request: UserLoginRequest):
     
     # 更新用户登录时间，生成token  
     client.update_one({"username": request.username}, {"$set": {"last_login": time.time()}})
-     # 生成JWT token
+    # 生成JWT token
     secret_key = os.environ.get("AUTH_SECRET")
     token = jwt.encode({"username": request.username, "exp": time.time() + 3600}, secret_key, algorithm="HS256")
     # 更新token
@@ -162,7 +162,7 @@ async def user_login(request: UserLoginRequest):
 @app.post("/task/publish")
 async def publish_task(request: PublishTaskRequest,token: str = Depends(verify_token)):
     # 创建web_navigation
-    web_nav = create_web_navigation(request.task_id, request.language)
+    web_nav = create_web_navigation(request.task_id, request.language, request.introduction, request.feature)
     
     # 同步到supabase
     url: str = os.environ.get("SUPABASE_URL")
