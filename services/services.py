@@ -64,18 +64,34 @@ def generate_page_content(task_detail: dict, step:dict):
     
     return task_detail
 
-def is_exist_translate(web_nav: dict, locale:str):
+def is_exist_web_navigation(web_nav: dict, locale:str):
     url: str = os.environ.get("SUPABASE_URL")
     key: str = os.environ.get("SUPABASE_KEY")
     supabase: Client = create_client(url, key)
-    exist = supabase.table('web_navigation').select('*').eq('url', web_nav['url']).eq('locale', locale).execute()
+    exist = supabase.table('web_navigation').select('id').eq('url', web_nav['url']).eq('locale', locale).execute()
     return len(exist.data) > 0
 
-async def generate_translate(web_nav: dict, model_name:str, language:str):
-      # 同步到supabase
+def update_web_navigation(web_nav: dict, url: str, locale:str):
     url: str = os.environ.get("SUPABASE_URL")
     key: str = os.environ.get("SUPABASE_KEY")
     supabase: Client = create_client(url, key)
+    supabase.table('web_navigation').update(web_nav).eq('url', url).eq('locale', locale).execute()
+    
+def add_web_navigation(web_nav: dict):
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+    supabase.table('web_navigation').insert(web_nav).execute()
+
+def add_or_update_web_navigation(web_nav: dict):
+    if is_exist_web_navigation(web_nav, web_nav['locale']):
+        update_web_navigation(web_nav, web_nav['url'], web_nav['locale'])
+    else:
+        add_web_navigation(web_nav)
+
+async def generate_translate(web_nav: dict, model_name:str, language:str):
+    # 同步到supabase
+    add_or_update_web_navigation(web_nav)
       # 多语言翻译
     model = get_llm_model(model_name)
     support_languages = GetSupportLanguages()
@@ -84,16 +100,16 @@ async def generate_translate(web_nav: dict, model_name:str, language:str):
             continue
         
         locale = GetLangeageCode(support_language)
-        if is_exist_translate(web_nav, locale):
-            print(f'{web_nav["url"]} 已经存在{support_language}翻译')
-            continue
         web_nav['locale'] = locale
         web_nav['title'] = model.process_language(support_language, web_nav['title'])
         web_nav['introds'] = model.process_language(support_language, web_nav['introds'])
         web_nav['feature'] = model.process_language(support_language, web_nav['feature'])
         
-        supabase.table('web_navigation').insert(web_nav).execute()   
+        add_or_update_web_navigation(web_nav)
+           
     logging.info(f"翻译完成{web_nav['url']}") 
+    
+
 
 # 异步执行翻译
 def run_async_translate_process(web_nav: dict, model_name:str, language:str):

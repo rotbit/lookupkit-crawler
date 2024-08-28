@@ -163,15 +163,6 @@ async def user_login(request: UserLoginRequest):
 async def publish_task(request: PublishTaskRequest,token: str = Depends(verify_token)):
     # 创建web_navigation
     web_nav = create_web_navigation(request.task_id, request.language, request.introduction, request.feature)
-    
-    locale = GetLangeageCode(request.language)
-    if not is_exist_translate(web_nav, locale):
-        # 同步到supabase
-        url: str = os.environ.get("SUPABASE_URL")
-        key: str = os.environ.get("SUPABASE_KEY")
-        supabase: Client = create_client(url, key)
-        
-        supabase.table('web_navigation').insert(web_nav).execute()    
         
     translate_process = Process(target=run_async_translate_process, args=(web_nav, request.model, request.language))
     translate_process.start()
