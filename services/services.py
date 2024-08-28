@@ -75,7 +75,9 @@ def update_web_navigation(web_nav: dict, url: str, locale:str):
     url: str = os.environ.get("SUPABASE_URL")
     key: str = os.environ.get("SUPABASE_KEY")
     supabase: Client = create_client(url, key)
-    supabase.table('web_navigation').update(web_nav).eq('url', url).eq('locale', locale).execute()
+    supabase.table('web_navigation').update({
+        "introds": web_nav['introds'], 
+        "feature": web_nav['feature']}).eq('url', url).eq('locale', locale).execute()
     
 def add_web_navigation(web_nav: dict):
     url: str = os.environ.get("SUPABASE_URL")
