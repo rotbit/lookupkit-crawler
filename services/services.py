@@ -149,6 +149,14 @@ def get_category_data() -> list:
         results.append(doc["name"])
     return results
 
+def get_format_prompt(task_detail: dict, prompt_template: str):
+    # 判断prompt_template是否包含 The keyword {keyword} needs to be included, the density of the keyword is {density}, and the output is in {language}.
+    if "{keyword}" in prompt_template and "{density}" in prompt_template and "{language}" in prompt_template:
+        prompt_template = prompt_template.replace("{keyword}", task_detail["keyword"])
+        prompt_template = prompt_template.replace("{density}", str(task_detail["keyword_density"]))
+        prompt_template = prompt_template.replace("{language}", task_detail["language"])
+    return prompt_template
+    
 async def generate_start(task_detail: dict, step:dict):
     collect_data = get_collect_data(task_detail["task_url"])
     update_task_progress(task_detail["task_id"], 10, "collect_data")
@@ -173,12 +181,14 @@ async def generate_start(task_detail: dict, step:dict):
     if step['generate_intro'] == True:
         update_task_progress(task_detail["task_id"], 20, "generate_intro")
         # 使用大模型生成内容
-        introduction = llm_model.generate_introduction(task_detail['introd_prompt'],collect_data["content"])
+        prompt = get_format_prompt(task_detail, task_detail['introd_prompt'])
+        introduction = llm_model.generate_introduction(prompt,collect_data["content"])
         page_detail["introduction"] = introduction
         
     if step['generate_feature'] == True:
         update_task_progress(task_detail["task_id"], 20, "generate_feature")
-        features = llm_model.generate_features(task_detail['feature_prompt'],collect_data["content"])
+        prompt = get_format_prompt(task_detail, task_detail['feature_prompt'])
+        features = llm_model.generate_features(prompt,collect_data["content"])
         page_detail["features"] = features
         
     # 生成分类
