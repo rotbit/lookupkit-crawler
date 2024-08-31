@@ -61,8 +61,6 @@ async def task_result(request: TaskResultRequest,token: str = Depends(verify_tok
 
 @app.get("/task/list")
 async def task_list(token: str = Depends(verify_token)):
-    # 异步更新数据
-    Process(target=start_sync_scheduler_once).start()
     
     results = getTaskList()
     return {"data": results, "code": 0}
