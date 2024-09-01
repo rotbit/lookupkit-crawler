@@ -3,9 +3,12 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 class AddTaskRequest(BaseModel):
+    task_id: int
     name: str
     url: str
-    status:str
+    
+class CrawlingRequest(BaseModel):
+    url: str
     
 class PublishTaskRequest(BaseModel):
     task_id: str

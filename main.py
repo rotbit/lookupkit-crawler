@@ -10,5 +10,5 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
 if __name__ == '__main__':
-    
+    # 启动定时任务    
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")

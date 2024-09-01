@@ -59,10 +59,14 @@ async def task_result(request: TaskResultRequest,token: str = Depends(verify_tok
     result = {k:v for k,v in task_result.items() if k != "_id"}
     return {"data": result, "code": 0}
 
+@app.get("/task/web_navs")
+async def get_web_navs(token: str = Depends(verify_token)):
+    results = getWebNavs()
+    return {"data": results, "code": 0}
+
 @app.get("/task/list")
 async def task_list(token: str = Depends(verify_token)):
-    
-    results = getTaskList()
+    results = getSubmitWebUrlList()
     return {"data": results, "code": 0}
 
 @app.get("/task/detail/{task_id}")
@@ -133,12 +137,33 @@ async def delete_task(request: DeleteTaskRequest,token: str = Depends(verify_tok
 
 @app.post("/task/add_task")
 async def add_task(request: AddTaskRequest,token: str = Depends(verify_token)):
-    client = GetMongoClient("submit")
-    submit_data = request.model_dump()
-    submit_data['id'] = int(time.time())
-    submit_data['email'] = ''
-    client.insert_one(submit_data)
-    return {"code": 0, "task_id": submit_data['id'] }
+    client = GetMongoClient("web_nav")
+    new_web_nav = {
+        "name": request.name,
+        "web_url": request.url,
+        "preview_url": "",
+        "model": "gpt-3.5-Turbo",
+        "keyword": "",
+        "density": 5,
+        "language": "en",
+        "title":"",
+        "desc":"",
+        "img_url":"",
+        "thumbnail":"",
+        "introduction":"",
+        "intro_prompt":"",
+        "feature":"",
+        "feature_prompt":"",
+        "tags":"",
+        "status": "0",
+    }
+    client.insert_one(new_web_nav)
+    
+    # 更新submit_web_url表状态为任务已加入
+    client = GetMongoClient("submit_web_url")
+    client.update_one({"id": request.task_id}, {"$set": {"status": "1"}})
+    
+    return {"code": 0, "msg": "success"}
 
 @app.post("/user/login")
 async def user_login(request: UserLoginRequest):
@@ -151,7 +176,7 @@ async def user_login(request: UserLoginRequest):
     client.update_one({"username": request.username}, {"$set": {"last_login": time.time()}})
     # 生成JWT token
     secret_key = os.environ.get("AUTH_SECRET")
-    token = jwt.encode({"username": request.username, "exp": time.time() + 3600}, secret_key, algorithm="HS256")
+    token = jwt.encode({"username": request.username, "exp": time.time() + 3600 * 24 * 30}, secret_key, algorithm="HS256")
     # 更新token
     client.update_one({"username": request.username}, {"$set": {"token": token}})
     
@@ -166,3 +191,34 @@ async def publish_task(request: PublishTaskRequest,token: str = Depends(verify_t
     translate_process.start()
     
     return {"code": 0, "message": "任务已经开始发布，请稍后查看" }
+
+@app.get("/task/categories")
+async def get_categories(token: str = Depends(verify_token)):
+    client = GetMongoClient("navigation_category")
+    categories = client.find()
+
+    results = []
+    for doc in categories:
+        item = {k:v for k,v in doc.items() if k != "_id"}
+        results.append(item["name"])
+    return {"data": results, "code": 0}
+
+@app.get("/task/web_nav/{name}")
+async def get_web_navs_by_name(name: str,token: str = Depends(verify_token)):
+    client = GetMongoClient("web_nav")
+    web_nav = client.find_one({"name": name})
+    web_nav = {k:v for k,v in web_nav.items() if k != "_id"}
+    return {"data": web_nav, "code": 0}
+
+@app.post("/task/crawling_data")
+async def collect_data(request: CrawlingRequest,token: str = Depends(verify_token)):
+    if not request.url:
+        return {"code": 1, "message": "url is empty, please check"}
+
+    websiteCrawler = WebsiteCrawler()
+    crawler_data = await websiteCrawler.collect_website_info(request.url)
+    
+    client = GetMongoClient("crawl_data")
+    client.insert_one(crawler_data)
+    
+    return {"code": 0, "message": "Collect Data finished"}

@@ -18,16 +18,27 @@ from services.llm import get_llm_model
 
 load_dotenv()
 
-def getTaskList()-> dict:
-    client = GetMongoClient("submit")
-    submit = client.find()
+def getSubmitWebUrlList()-> dict:
+    client = GetMongoClient("submit_web_url")
+    datas = client.find({"status": "0"})
     
     results = []
-    for doc in submit:
+    for doc in datas:
         item = {k:v for k,v in doc.items() if k != "_id"}
         results.append(item)
+    
     return results
-        
+       
+def getWebNavs()-> dict:
+    client = GetMongoClient("web_nav")
+    datas = client.find()
+    
+    results = []
+    for doc in datas:
+        item = {k:v for k,v in doc.items() if k != "_id"}
+        results.append(item)
+    
+    return results 
 
 def getTaskDetail(task_id: str)-> dict:
     client = GetMongoClient("task_detail")
@@ -208,7 +219,7 @@ async def generate_start(task_detail: dict, step:dict):
     
     # 更新任务进度
     update_task_progress(task_detail["task_id"], 100, "completed")
-    
+  
 def createDefaultTask(task_id: str)-> dict:
     # 先查询submit表，查询基础数据
     client = GetMongoClient("submit")
