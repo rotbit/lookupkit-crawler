@@ -46,6 +46,28 @@ class CommonUtil:
 def GetSupportLanguages():
     return ["chinese", "english", "japanese", "french", "spanish", "german", "russian", "portuguese", "繁体中文"]
         
+def GetCodeByLanguage(language: str):
+    language = str.lower(language)
+    if language == "cn":
+        return "chinese"
+    if language == "en":
+        return "english"
+    if language == "jp":
+        return "japanese"
+    if language == "fr":
+        return "french"
+    if language == "es":
+        return "spanish"
+    if language == "de":
+        return "german"
+    if language == "ru":
+        return "russian"
+    if language == "pt":
+        return "portuguese"
+    if language == "繁体中文":
+        return "tw"
+    return "en"
+
 def GetLangeageCode(language: str):
     language = str.lower(language)
     if language == "chinese":

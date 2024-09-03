@@ -26,7 +26,14 @@ class GenerateRequest(BaseModel):
     prompt: str
     tags: str
     section_type: str
-    
+
+class RewriteRequest(BaseModel):
+    model: str
+    prompt: str
+    content: str
+    url: str
+    section_type: str    
+
 class TaskResultRequest(BaseModel):
     task_id: str
     language: str

@@ -12,7 +12,7 @@ from supabase import Client, create_client
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
                 
 from models.requests import GenerateRequest
-from utils.common_util import GetLangeageCode, GetSupportLanguages
+from utils.common_util import GetCodeByLanguage, GetLangeageCode, GetSupportLanguages
 from utils.mongodb_utils import GetMongoClient
 from utils.website_crawler import WebsiteCrawler
 from services.llm import get_llm_model
@@ -167,10 +167,16 @@ def get_format_prompt(request: GenerateRequest, prompt_template: str):
     if prompt_template is None:
         return ""
     # 判断prompt_template是否包含 The keyword {keyword} needs to be included, the density of the keyword is {density}, and the output is in {language}.
-    if "{keyword}" in prompt_template and "{density}" in prompt_template and "{language}" in prompt_template:
+    if "{keyword}" in prompt_template or "{density}" in prompt_template or "{language}" in prompt_template:
         prompt_template = prompt_template.replace("{keyword}", request.keyword)
         prompt_template = prompt_template.replace("{density}", str(request.density))
-        prompt_template = prompt_template.replace("{language}", request.language)
+        
+        language = GetCodeByLanguage(request.language)
+        print(f"request.language: {request.language} language: {language}")
+        
+        
+        
+        prompt_template = prompt_template.replace("{language}", language)
     return prompt_template
     
 async def generate_start(task_detail: dict, step:dict):

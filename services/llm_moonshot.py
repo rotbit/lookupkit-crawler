@@ -41,7 +41,7 @@ class LLMMoonshot:
         logger.info("正在处理Detail...")
         return self.completion(self.detail_sys_prompt, user_prompt)
 
-    def generate_introduction(self, sys_prompt, user_prompt):
+    def generate(self, sys_prompt, user_prompt):
         logger.info("正在生成简介...")
         if len(sys_prompt) == 0:
             sys_prompt = self.introduction_sys_prompt

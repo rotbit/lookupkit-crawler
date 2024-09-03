@@ -89,11 +89,15 @@ async def generate(request: GenerateRequest,token: str = Depends(verify_token)):
     if request.section_type == "feature":
         prompt = os.environ.get("FEATURE_SYS_PROMPT")
     
+    # 更新prompt参数
+    prompt = get_format_prompt(request, prompt)
+    print(f"prompt: {prompt}")
+    
     # 请求中的提示词不为空，使用请求中的提示词
     if request.prompt and request.prompt != "":
         prompt = request.prompt
+
     
-    # 更新prompt参数
     if request.section_type == "feature":
         GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"feature_prompt": prompt}})
     if request.section_type == "introduction":
@@ -117,15 +121,14 @@ async def generate(request: GenerateRequest,token: str = Depends(verify_token)):
     content = crawl_data["content"] + " " + crawl_data["title"] + " " + crawl_data["description"]
     # 生成内容
     llm_model = get_llm_model(request.model)
-    prompt = get_format_prompt(request, prompt)
-    generated_content = llm_model.generate_introduction(prompt, content)
+    generated_content = llm_model.generate(prompt, content)
     
     if request.section_type == "feature":
         GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"feature": generated_content}})
     if request.section_type == "introduction":
         GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"introduction": generated_content}})
         
-    return { "code": 0, "message": f"{request.section_type} was generated", "content": generated_content}
+    return { "code": 0, "message": f"{request.section_type} was generated", "content": generated_content, "prompt": prompt}
 
 
 @app.post("/task/delete")
@@ -182,6 +185,18 @@ async def user_login(request: UserLoginRequest):
     client.update_one({"username": request.username}, {"$set": {"token": token}})
     
     return {"code": 0, "token": token}
+
+@app.post("/task/rewrite")
+async def rewrite_task(request: RewriteRequest,token: str = Depends(verify_token)):
+    model = get_llm_model(request.model)
+    generated_content = model.generate(request.prompt, request.content)
+    
+    client = GetMongoClient("web_nav")
+    if request.section_type == "feature":
+        client.update_one({"web_url": request.url}, {"$set": {"feature": generated_content, "feature_prompt": request.prompt}})
+    if request.section_type == "introduction":
+        client.update_one({"web_url": request.url}, {"$set": {"introduction": generated_content, "intro_prompt": request.prompt}})
+    return {"code": 0, "message": "rewrite success", "content": generated_content}
 
 @app.post("/task/publish")
 async def publish_task(request: PublishTaskRequest,token: str = Depends(verify_token)):
