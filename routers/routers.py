@@ -81,52 +81,52 @@ async def task_progress(task_id: str,token: str = Depends(verify_token)):
         return {"code": 1, "message": "任务不存在"}
     return {"code": 0, "status": task_progress['status']}
 
+
 @app.post("/task/generate")
 async def generate(request: GenerateRequest,token: str = Depends(verify_token)):
-    print(token)
-    # 更新任务信息
-    update_task_detail(request.task_id, request.dict())
-    # 创建任务进度
-    create_task_progress(request.task_id, "collect_data")
+    # 设置默认提示词
+    prompt = os.environ.get("INTRODUCTION_SYS_PROMPT")
+    if request.section_type == "feature":
+        prompt = os.environ.get("FEATURE_SYS_PROMPT")
     
-    step = {
-        "generate_intro": True,
-        "generate_feature": True,
-        "generate_tags": True
-    }
-    generate_page_content(request.model_dump(), step)
-    return { "code": 0, "status": "collect_data", "message": "任务已经开始生成，请稍后查看" }
-
-
-@app.post("/task/generate_intro")
-async def generate_introd(request: GenerateRequest,token: str = Depends(verify_token)):
-    # 更新任务信息
-    update_task_detail(request.task_id, request.dict())
-    # 创建任务进度
-    create_task_progress(request.task_id, "generate_introd")
+    # 请求中的提示词不为空，使用请求中的提示词
+    if request.prompt and request.prompt != "":
+        prompt = request.prompt
+    
+    # 更新prompt参数
+    if request.section_type == "feature":
+        GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"feature_prompt": prompt}})
+    if request.section_type == "introduction":
+        GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"intro_prompt": prompt}})
         
-    step = {
-        "generate_intro": True,
-        "generate_feature": False,
-        "generate_tags": False
-    }
-    generate_page_content(request.model_dump(), step)
-    return { "code": 0, "status": "generate_introd", "message": "任务已经开始生成，请稍后查看" }
-
-@app.post("/task/generate_feature")
-async def generate_introd(request: GenerateRequest,token: str = Depends(verify_token)):
-    # 更新任务信息
-    update_task_detail(request.task_id, request.dict())
-    # 创建任务进度
-    create_task_progress(request.task_id, "generate_introd")
+    # 更新公共参数
+    GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {
+            "model": request.model, 
+            "language": request.language, 
+            "keyword": request.keyword, 
+            "density": request.density,
+            "tags": request.tags,
+        }})
+    
+    # 获取收集的数据
+    client = GetMongoClient("crawl_data")
+    crawl_data = client.find_one({"url": request.url})
+    if crawl_data is None:
+        return {"code": 1, "message": f"crawl data not found {request.name}"}
+    
+    content = crawl_data["content"] + " " + crawl_data["title"] + " " + crawl_data["description"]
+    # 生成内容
+    llm_model = get_llm_model(request.model)
+    prompt = get_format_prompt(request, prompt)
+    generated_content = llm_model.generate_introduction(prompt, content)
+    
+    if request.section_type == "feature":
+        GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"feature": generated_content}})
+    if request.section_type == "introduction":
+        GetMongoClient("web_nav").update_one({"web_url": request.url}, {"$set": {"introduction": generated_content}})
         
-    step = {
-        "generate_intro": False,
-        "generate_feature": True,
-        "generate_tags": False
-    }
-    generate_page_content(request.model_dump(), step)
-    return { "code": 0, "status": "generate_feature", "message": "任务已经开始生成，请稍后查看" }
+    return { "code": 0, "message": f"{request.section_type} was generated", "content": generated_content}
+
 
 @app.post("/task/delete")
 async def delete_task(request: DeleteTaskRequest,token: str = Depends(verify_token)):
@@ -156,6 +156,7 @@ async def add_task(request: AddTaskRequest,token: str = Depends(verify_token)):
         "feature_prompt":"",
         "tags":"",
         "status": "0",
+        "origin_content": "",
     }
     client.insert_one(new_web_nav)
     
@@ -218,7 +219,22 @@ async def collect_data(request: CrawlingRequest,token: str = Depends(verify_toke
     websiteCrawler = WebsiteCrawler()
     crawler_data = await websiteCrawler.collect_website_info(request.url)
     
-    client = GetMongoClient("crawl_data")
-    client.insert_one(crawler_data)
+    client = GetMongoClient("web_nav")
+    client.update_one({"web_url": crawler_data["url"]}, 
+                      {"$set": {
+                          "title": crawler_data["title"],
+                          "desc": crawler_data["description"],
+                          "origin_content": crawler_data["content"],
+                          "img_url": crawler_data["screenshot"],
+                      }}, 
+                      upsert=True)
     
-    return {"code": 0, "message": "Collect Data finished"}
+    return {
+            "code": 0, 
+            "message": "Collect Data finished",
+            "data": {"title": crawler_data["title"],
+                "desc": crawler_data["description"], 
+                "img_url": crawler_data["screenshot"], 
+                "thumbnail": crawler_data["thumbnail"]
+                }
+            }
