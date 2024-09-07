@@ -3,9 +3,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 class AddTaskRequest(BaseModel):
-    task_id: int
     name: str
-    url: str
+    web_url: str
     
 class CrawlingRequest(BaseModel):
     url: str
@@ -45,3 +44,22 @@ class UserLoginRequest(BaseModel):
     username: str
     password: str
     
+class TranslateRequest(BaseModel):
+    text: str
+    model: str
+    language: str
+    field: str
+    url: str
+    
+class SaveDataRequest(BaseModel):
+    model: str
+    keyword: str
+    density: int
+    language: str
+    name: str
+    web_url:str
+    tags: str
+    title: str
+    desc: str
+    feature: str
+    introd: str

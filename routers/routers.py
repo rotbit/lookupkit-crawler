@@ -113,12 +113,12 @@ async def generate(request: GenerateRequest,token: str = Depends(verify_token)):
         }})
     
     # 获取收集的数据
-    client = GetMongoClient("crawl_data")
-    crawl_data = client.find_one({"url": request.url})
-    if crawl_data is None:
+    client = GetMongoClient("web_nav")
+    web_nav = client.find_one({"web_url": request.url})
+    if web_nav is None:
         return {"code": 1, "message": f"crawl data not found {request.name}"}
     
-    content = crawl_data["content"] + " " + crawl_data["title"] + " " + crawl_data["description"]
+    content = web_nav['origin_content']
     # 生成内容
     llm_model = get_llm_model(request.model)
     generated_content = llm_model.generate(prompt, content)
@@ -143,7 +143,7 @@ async def add_task(request: AddTaskRequest,token: str = Depends(verify_token)):
     client = GetMongoClient("web_nav")
     new_web_nav = {
         "name": request.name,
-        "web_url": request.url,
+        "web_url": request.web_url,
         "preview_url": "",
         "model": "gpt-3.5-Turbo",
         "keyword": "",
@@ -165,7 +165,7 @@ async def add_task(request: AddTaskRequest,token: str = Depends(verify_token)):
     
     # 更新submit_web_url表状态为任务已加入
     client = GetMongoClient("submit_web_url")
-    client.update_one({"id": request.task_id}, {"$set": {"status": "1"}})
+    client.update_one({"url": request.web_url}, {"$set": {"status": "1"}})
     
     return {"code": 0, "msg": "success"}
 
@@ -241,6 +241,7 @@ async def collect_data(request: CrawlingRequest,token: str = Depends(verify_toke
                           "desc": crawler_data["description"],
                           "origin_content": crawler_data["content"],
                           "img_url": crawler_data["screenshot"],
+                          "thumbnail": crawler_data["thumbnail"],
                       }}, 
                       upsert=True)
     
@@ -253,3 +254,78 @@ async def collect_data(request: CrawlingRequest,token: str = Depends(verify_toke
                 "thumbnail": crawler_data["thumbnail"]
                 }
             }
+
+@app.post("/task/save_data")
+async def save_data(request: SaveDataRequest, token: str = Depends(verify_token)):
+    client = GetMongoClient("web_nav")
+    client.update_one({"web_url": request.web_url}, 
+                      {"$set": {
+                          "title": request.title,
+                          "desc": request.desc,
+                          "density": request.density,
+                          "language": request.language,
+                          "keyword": request.keyword,
+                          "model": request.model,
+                          "tags": request.tags,
+                          "introduction": request.introd,
+                          "feature": request.feature,
+                      }}, 
+                      upsert=True)
+    
+    
+    
+    return {"code": 0, "message": f'Save {request.name} data successful'}
+    
+@app.post("/task/translate")
+async def translate(request:TranslateRequest, token: str = Depends(verify_token)):
+    model = get_llm_model(request.model)
+    translate_content = model.process_language(request.language, request.text)
+    
+    # get collect data
+    client = GetMongoClient('web_nav')
+    web_nav = client.find_one({'web_url': request.url})
+        
+    # 生成的内容存储到supabase
+    languageCode = GetLangeageCode(request.language)
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+    
+    response = supabase.table('web_navigation') \
+            .select('name') \
+            .eq('locale', languageCode) \
+            .eq('url', request.url).execute()
+    # update data
+    if len(response.data) > 0:
+        supabase.table('web_navigation') \
+            .update({
+                request.field: translate_content, 
+                "category_name": web_nav['tags'],
+                "image_url": web_nav['img_url'],
+                'content': web_nav['desc'],
+                "thumbnail_url": web_nav['thumbnail'],
+                'title': web_nav['title']}) \
+            .eq('url', request.url) \
+            .eq('locale', languageCode).execute()
+            
+    else:
+        supabase.table('web_navigation') \
+            .insert({
+                'name': web_nav['name'],
+                'title': web_nav['title'],
+                'content': web_nav['desc'],
+                'url': request.url,
+                'image_url': web_nav['img_url'],
+                'thumbnail_url': web_nav['thumbnail'],
+                'category_name': web_nav['tags'],
+                'locale': languageCode,
+                'introds': web_nav['introduction'],
+                'feature': web_nav['feature'],
+            }).execute()
+    
+    
+    return {
+        "code": 0,
+        "message": f"Translate into {request.language} successed",
+        "result": translate_content
+    }
